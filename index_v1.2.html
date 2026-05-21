@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>מפת הטיולים</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css"/>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <header id="header">
+    <h1>🗺️ מפת הטיולים</h1>
+    <button class="icon-btn" onclick="toggleFilter()">⚙️ סינון</button>
+  </header>
+
+  <!-- Filter Panel -->
+  <div id="filter-panel" class="panel hidden">
+    <div class="panel-header">
+      <h2>סינון מקומות</h2>
+      <button class="close-btn" onclick="toggleFilter()">✕</button>
+    </div>
+    <div class="filter-body">
+      <div class="form-group">
+        <label>אזור</label>
+        <select id="filter-region"><option value="">הכל</option></select>
+      </div>
+      <div class="form-group">
+        <label>קטגוריה</label>
+        <select id="filter-category"><option value="">הכל</option></select>
+      </div>
+      <div class="form-group checkboxes">
+        <label><input type="checkbox" id="filter-bad-weather"> מתאים למזג אוויר בעייתי</label>
+        <label><input type="checkbox" id="filter-not-visited"> לא ביקרנו עדיין</label>
+      </div>
+      <button onclick="applyFilters()" class="btn-primary">החל סינון</button>
+      <button onclick="clearFilters()" class="btn-secondary">נקה הכל</button>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <main id="main">
+
+    <!-- Map View -->
+    <div id="map-view" class="view active">
+      <div id="map"></div>
+      <div id="region-overlay" class="map-overlay">
+        <select id="region-highlight-select" onchange="highlightRegion(this.value)">
+          <option value="">הדגש אזור על המפה</option>
+        </select>
+      </div>
+      <button id="btn-draw" class="map-btn" onclick="toggleDraw()">✏️ סמן אזור</button>
+    </div>
+
+    <!-- List View -->
+    <div id="list-view" class="view hidden">
+      <div id="search-bar">
+        <input type="text" id="search-input" placeholder="🔍 חיפוש מקום, אזור..." oninput="filterList()">
+      </div>
+      <div id="places-list"></div>
+    </div>
+
+    <!-- Route View -->
+    <div id="route-view" class="view hidden">
+      <div id="route-map"></div>
+      <div id="route-panel">
+        <h2>בניית מסלול</h2>
+        <div class="route-settings">
+          <label>שעת יציאה:</label>
+          <input type="time" id="departure-time" value="09:00">
+        </div>
+        <p class="hint">בחרי מקומות למסלול:</p>
+        <div id="route-places-selector"></div>
+        <button onclick="buildRoute()" class="btn-primary">🛣️ בנה מסלול</button>
+        <div id="route-timeline"></div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Detail Panel -->
+  <div id="detail-panel" class="bottom-sheet hidden">
+    <div class="sheet-handle" onclick="closeDetail()"></div>
+    <div id="detail-content"></div>
+  </div>
+
+  <!-- Add/Edit Form -->
+  <div id="form-panel" class="full-panel hidden">
+    <div class="panel-header">
+      <button class="close-btn" onclick="closeForm()">✕</button>
+      <h2 id="form-title">הוספת מקום</h2>
+      <button onclick="savePlace()" class="btn-save">שמור</button>
+    </div>
+    <form id="place-form" onsubmit="return false"></form>
+  </div>
+
+  <!-- PIN Dialog -->
+  <div id="pin-dialog" class="dialog hidden">
+    <div class="dialog-content">
+      <h2>הזני קוד PIN</h2>
+      <input type="password" id="pin-input" maxlength="4" inputmode="numeric" placeholder="• • • •">
+      <div id="pin-error" class="error-msg hidden">קוד שגוי, נסי שוב</div>
+      <div class="dialog-buttons">
+        <button onclick="cancelPin()" class="btn-secondary">ביטול</button>
+        <button onclick="submitPin()" class="btn-primary">אישור</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Panel -->
+  <div id="settings-panel" class="full-panel hidden">
+    <div class="panel-header">
+      <button class="close-btn" onclick="closeSettings()">✕</button>
+      <h2>הגדרות</h2>
+    </div>
+    <div class="settings-body">
+      <h3>שינוי קוד PIN</h3>
+      <div class="form-group">
+        <label>קוד נוכחי</label>
+        <input type="password" id="old-pin" maxlength="4" inputmode="numeric" placeholder="• • • •">
+      </div>
+      <div class="form-group">
+        <label>קוד חדש</label>
+        <input type="password" id="new-pin" maxlength="4" inputmode="numeric" placeholder="• • • •">
+      </div>
+      <div class="form-group">
+        <label>אימות קוד חדש</label>
+        <input type="password" id="confirm-pin" maxlength="4" inputmode="numeric" placeholder="• • • •">
+      </div>
+      <button onclick="changePin()" class="btn-primary">שמור קוד חדש</button>
+    </div>
+  </div>
+
+  <!-- Bottom Nav -->
+  <nav id="bottom-nav">
+    <button class="nav-btn active" onclick="showView('map')" id="nav-map">
+      <span class="nav-icon">🗺️</span><span class="nav-label">מפה</span>
+    </button>
+    <button class="nav-btn" onclick="showView('list')" id="nav-list">
+      <span class="nav-icon">📋</span><span class="nav-label">רשימה</span>
+    </button>
+    <button class="nav-btn nav-fab" onclick="requestPin('add')">
+      <span class="nav-icon">＋</span>
+    </button>
+    <button class="nav-btn" onclick="showView('route')" id="nav-route">
+      <span class="nav-icon">🛣️</span><span class="nav-label">מסלול</span>
+    </button>
+    <button class="nav-btn" onclick="requestPin('settings')" id="nav-settings">
+      <span class="nav-icon">⚙️</span><span class="nav-label">הגדרות</span>
+    </button>
+  </nav>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="regions.js"></script>
+  <script src="app_v1.2.js"></script>
+</body>
+</html>
